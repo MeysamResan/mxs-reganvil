@@ -1,0 +1,11 @@
+# Use stable text diffs and archives on every development platform.
+* text=auto eol=lf
+*.c text eol=lf
+*.h text eol=lf
+*.cmake text eol=lf
+*.cmake.in text eol=lf
+CMakeLists.txt text eol=lf
+*.md text eol=lf
+*.ps1 text eol=lf
+*.yml text eol=lf
+LICENSE text eol=lf

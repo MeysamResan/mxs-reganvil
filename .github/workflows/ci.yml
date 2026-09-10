@@ -1,0 +1,74 @@
+name: RegAnvil verification
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verification-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: ${{ matrix.platform.os }} / ${{ matrix.platform.compiler }} / ${{ matrix.config }}
+    runs-on: ${{ matrix.platform.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        config: [Debug, Release]
+        platform:
+          - os: ubuntu-latest
+            compiler: gcc
+          - os: ubuntu-latest
+            compiler: clang
+          - os: macos-latest
+            compiler: clang
+          - os: windows-latest
+            compiler: msvc
+    steps:
+      # v7.0.1 verified against the official release and commit on 2026-09-10:
+      # https://github.com/actions/checkout/releases/tag/v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Configure GCC or Clang
+        if: matrix.platform.compiler != 'msvc'
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.config }} -DCMAKE_C_COMPILER=${{ matrix.platform.compiler }}
+      - name: Configure MSVC
+        if: matrix.platform.compiler == 'msvc'
+        run: cmake -S . -B build -A x64
+      - name: Build
+        run: cmake --build build --config ${{ matrix.config }} --parallel
+      - name: Test behavior, demonstration, and source/relocated consumers
+        run: ctest --test-dir build -C ${{ matrix.config }} --output-on-failure --no-tests=error
+      - name: Configure library alone with GCC or Clang
+        if: matrix.platform.compiler != 'msvc'
+        run: cmake -S . -B build-library -DMXS_REGANVIL_BUILD_TESTS=OFF -DMXS_REGANVIL_BUILD_EXAMPLES=OFF -DCMAKE_BUILD_TYPE=${{ matrix.config }} -DCMAKE_C_COMPILER=${{ matrix.platform.compiler }}
+      - name: Configure library alone with MSVC
+        if: matrix.platform.compiler == 'msvc'
+        run: cmake -S . -B build-library -A x64 -DMXS_REGANVIL_BUILD_TESTS=OFF -DMXS_REGANVIL_BUILD_EXAMPLES=OFF
+      - name: Build library alone
+        run: cmake --build build-library --config ${{ matrix.config }} --parallel
+
+  sanitizers:
+    name: Linux / Clang / ASan + UBSan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_C_COMPILER=clang -DCMAKE_BUILD_TYPE=Debug -DMXS_REGANVIL_ENABLE_SANITIZERS=ON
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Run all checks with sanitizers
+        env:
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: ctest --test-dir build --output-on-failure --no-tests=error

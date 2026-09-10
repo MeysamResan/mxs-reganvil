@@ -1,0 +1,33 @@
+# Keep all local build, install, and verification products here.
+/build/
+/build-*/
+/_build/
+/.build/
+/.tmp/
+/out/
+/CMakeUserPresets.json
+
+# Accidental in-source CMake outputs.
+/CMakeCache.txt
+/CMakeFiles/
+/CTestTestfile.cmake
+/Testing/
+/cmake_install.cmake
+/install_manifest.txt
+/Makefile
+
+# Native compiler/editor products.
+*.o
+*.obj
+*.a
+*.lib
+*.exe
+*.pdb
+*.ilk
+*.idb
+*.gcda
+*.gcno
+*.profraw
+.DS_Store
+Thumbs.db
+/.vs/

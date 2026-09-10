@@ -1,0 +1,122 @@
+# CTest integration checks use unique directories under this build tree.
+# No system installation, package registry, network, or source-tree build files.
+cmake_minimum_required(VERSION 3.20)
+
+function(mxs_reganvil_run)
+    # ARGV is a CMake list; re-expanding it directly would split a single
+    # semicolon-containing argument (for example, a universal-build arch list).
+    set(command)
+    math(EXPR last_argument "${ARGC} - 1")
+    foreach(argument_index RANGE ${last_argument})
+        string(REPLACE ";" "\\;" argument "${ARGV${argument_index}}")
+        list(APPEND command "${argument}")
+    endforeach()
+    execute_process(COMMAND ${command} RESULT_VARIABLE result
+        OUTPUT_VARIABLE output ERROR_VARIABLE error)
+    if(NOT result EQUAL 0)
+        message(FATAL_ERROR "Consumer verification failed (${result}): ${ARGV}\n${output}\n${error}")
+    endif()
+endfunction()
+
+set(build_root "@CMAKE_CURRENT_BINARY_DIR@")
+string(RANDOM LENGTH 12 ALPHABET 0123456789abcdef run_id)
+set(work "${build_root}/consumer-checks/${MXS_REGANVIL_CONSUMER_MODE}-${run_id}")
+file(MAKE_DIRECTORY "${work}/source")
+# Copying the fixture also catches accidental dependence on relative headers.
+file(COPY "@CMAKE_CURRENT_SOURCE_DIR@/tests/consumer/CMakeLists.txt"
+    "@CMAKE_CURRENT_SOURCE_DIR@/tests/consumer/main.c" DESTINATION "${work}/source")
+
+set(config "${MXS_REGANVIL_TEST_CONFIG}")
+if(config STREQUAL "")
+    set(config "@CMAKE_BUILD_TYPE@")
+endif()
+set(configure_args -G "@CMAKE_GENERATOR@"
+    "-DCMAKE_C_COMPILER=@CMAKE_C_COMPILER@"
+    "-DCMAKE_BUILD_TYPE=${config}"
+    "-DMXS_REGANVIL_CONSUMER_SANITIZERS=@MXS_REGANVIL_ENABLE_SANITIZERS@"
+    -DCMAKE_FIND_USE_PACKAGE_REGISTRY=OFF
+    -DCMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY=OFF)
+# A separate configure must use the same ABI and build flags as the archive.
+# Otherwise, configuration-specific flags or a cross-compiling toolchain could
+# silently be replaced by the compiler's host defaults in the consumer test.
+string(TOUPPER "${config}" config_upper)
+set(forwarded_cache_variables
+    CMAKE_C_FLAGS "CMAKE_C_FLAGS_${config_upper}"
+    CMAKE_EXE_LINKER_FLAGS "CMAKE_EXE_LINKER_FLAGS_${config_upper}"
+    CMAKE_TOOLCHAIN_FILE CMAKE_C_COMPILER_TARGET CMAKE_C_COMPILER_EXTERNAL_TOOLCHAIN
+    CMAKE_SYSROOT CMAKE_SYSROOT_COMPILE CMAKE_SYSROOT_LINK
+    CMAKE_OSX_ARCHITECTURES CMAKE_OSX_DEPLOYMENT_TARGET CMAKE_OSX_SYSROOT
+    CMAKE_MSVC_RUNTIME_LIBRARY CMAKE_CROSSCOMPILING_EMULATOR)
+load_cache("${build_root}" READ_WITH_PREFIX parent_ ${forwarded_cache_variables})
+foreach(cache_variable IN LISTS forwarded_cache_variables)
+    if(DEFINED parent_${cache_variable})
+        # Preserve list-valued settings as one -D argument.
+        string(REPLACE ";" "\\;" cache_value "${parent_${cache_variable}}")
+        list(APPEND configure_args "-D${cache_variable}=${cache_value}")
+    endif()
+endforeach()
+if(NOT "@CMAKE_MAKE_PROGRAM@" STREQUAL "")
+    list(APPEND configure_args "-DCMAKE_MAKE_PROGRAM=@CMAKE_MAKE_PROGRAM@")
+endif()
+if(NOT "@CMAKE_GENERATOR_PLATFORM@" STREQUAL "")
+    list(APPEND configure_args -A "@CMAKE_GENERATOR_PLATFORM@")
+endif()
+if(NOT "@CMAKE_GENERATOR_TOOLSET@" STREQUAL "")
+    list(APPEND configure_args -T "@CMAKE_GENERATOR_TOOLSET@")
+endif()
+set(config_args)
+if(NOT config STREQUAL "")
+    list(APPEND config_args --config "${config}")
+endif()
+
+if(MXS_REGANVIL_CONSUMER_MODE STREQUAL "source")
+    list(APPEND configure_args
+        "-DMXS_REGANVIL_SOURCE_DIR=@CMAKE_CURRENT_SOURCE_DIR@"
+        "-DMXS_REGANVIL_ENABLE_SANITIZERS=@MXS_REGANVIL_ENABLE_SANITIZERS@")
+elseif(MXS_REGANVIL_CONSUMER_MODE STREQUAL "installed")
+    set(original "${work}/prefix-original")
+    set(relocated "${work}/prefix-relocated")
+    # Verify resolved targets before moving the freshly installed directory.
+    get_filename_component(resolved_root "${build_root}" REALPATH)
+    get_filename_component(resolved_work "${work}" REALPATH)
+    string(FIND "${resolved_work}/" "${resolved_root}/" prefix_position)
+    if(NOT prefix_position EQUAL 0 OR resolved_work STREQUAL resolved_root)
+        message(FATAL_ERROR "Consumer test directory is outside its build tree")
+    endif()
+    mxs_reganvil_run("@CMAKE_COMMAND@" --install "${build_root}"
+        --prefix "${original}" ${config_args})
+    file(RENAME "${original}" "${relocated}")
+    # Check exported metadata for accidental developer/source/build paths.
+    file(GLOB_RECURSE package_files "${relocated}/*.cmake")
+    foreach(package_file IN LISTS package_files)
+        file(READ "${package_file}" package_text)
+        foreach(forbidden IN ITEMS "@CMAKE_CURRENT_SOURCE_DIR@" "${build_root}" "${original}")
+            string(FIND "${package_text}" "${forbidden}" path_position)
+            if(NOT path_position EQUAL -1)
+                message(FATAL_ERROR "Non-relocatable path in ${package_file}: ${forbidden}")
+            endif()
+        endforeach()
+    endforeach()
+    list(APPEND configure_args
+        "-Dmxs_reganvil_DIR=${relocated}/@MXS_REGANVIL_INSTALL_CMAKEDIR@"
+        "-DCMAKE_PREFIX_PATH=${relocated}")
+else()
+    message(FATAL_ERROR "Unknown consumer verification mode")
+endif()
+
+mxs_reganvil_run("@CMAKE_COMMAND@" -S "${work}/source" -B "${work}/build" ${configure_args})
+load_cache("${work}/build" READ_WITH_PREFIX consumer_ ${forwarded_cache_variables})
+foreach(cache_variable IN LISTS forwarded_cache_variables)
+    if(DEFINED parent_${cache_variable}
+            AND NOT "${parent_${cache_variable}}" STREQUAL "${consumer_${cache_variable}}")
+        message(FATAL_ERROR "Consumer changed ${cache_variable}: expected '${parent_${cache_variable}}', got '${consumer_${cache_variable}}'")
+    endif()
+endforeach()
+mxs_reganvil_run("@CMAKE_COMMAND@" --build "${work}/build" ${config_args})
+execute_process(COMMAND "@CMAKE_CTEST_COMMAND@" --output-on-failure --no-tests=error -C "${config}"
+    WORKING_DIRECTORY "${work}/build" RESULT_VARIABLE test_result
+    OUTPUT_VARIABLE test_output ERROR_VARIABLE test_error)
+if(NOT test_result EQUAL 0)
+    message(FATAL_ERROR "Consumer execution failed: ${test_output}\n${test_error}")
+endif()
+message(STATUS "RegAnvil ${MXS_REGANVIL_CONSUMER_MODE} consumer configured, built, and ran: ${work}")
