@@ -9,3 +9,6 @@ CMakeLists.txt text eol=lf
 *.ps1 text eol=lf
 *.yml text eol=lf
 LICENSE text eol=lf
+
+# Preserve exact upstream notice bytes, including their original whitespace.
+site/vendor/THIRD-PARTY-NOTICES.txt -text -whitespace

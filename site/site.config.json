@@ -1,0 +1,7 @@
+{
+  "name": "RegAnvil",
+  "repository": "MeysamResan/mxs-reganvil",
+  "baseUrl": "https://meysamresan.github.io/mxs-reganvil/",
+  "description": "C99 library for unit testing embedded drivers without hardware. Models 32-bit MMIO registers, W1C/read-clear bits, and access traces; no heap.",
+  "topics": ["c", "c99", "embedded", "firmware", "unit-testing", "device-drivers", "mmio", "register-model", "w1c", "cmake"]
+}

@@ -1,14 +1,14 @@
-# RegAnvil
+# RegAnvil — register modeling for embedded C unit tests
 
 **Hardware register behavior. Plain C tests.**
 
-RegAnvil is a small C99 library that lets you test a hardware driver without a board. Describe the device's 32-bit registers, connect the driver's read/write functions, and check that the driver handles the register rules correctly.
+RegAnvil is a small C99 library for unit testing embedded drivers without hardware. It models 32-bit memory-mapped I/O (MMIO) register behavior: describe the registers, connect the driver's replaceable read/write functions, and check that the driver handles their rules correctly.
 
 The model keeps real state between accesses: read-only bits resist writes, write-one-to-clear flags clear only when acknowledged, and read-clear bits disappear after a read. Optional tracing shows exactly what the driver read or wrote and how each register changed.
 
 **Version:** 0.1.0 · **Language:** C99 · **License:** [MIT](LICENSE)
 
-[Source](https://github.com/MeysamResan/mxs-reganvil) · [Releases](https://github.com/MeysamResan/mxs-reganvil/releases) · [CI runs](https://github.com/MeysamResan/mxs-reganvil/actions/workflows/ci.yml)
+[Documentation](https://meysamresan.github.io/mxs-reganvil/) · [Practical guides](docs/guides.md) · [Source](https://github.com/MeysamResan/mxs-reganvil) · [Releases](https://github.com/MeysamResan/mxs-reganvil/releases) · [CI runs](https://github.com/MeysamResan/mxs-reganvil/actions/workflows/ci.yml)
 
 - One public header and one C source file.
 - Caller-owned storage; no heap allocation, operating-system calls, runtime dependencies, or mutable global state.
@@ -436,6 +436,8 @@ Configuration checks that both AddressSanitizer and UndefinedBehaviorSanitizer c
 
 The verifier and sanitizer CI job make sanitizer diagnostics fatal. For a manual run, set `ASAN_OPTIONS=halt_on_error=1` and `UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1` in your shell. An executable consuming an instrumented static archive must explicitly link matching runtimes; use an ordinary build for general installation.
 
+For vcpkg integration, use the tested [overlay port](packaging/README.md). It installs the published 0.1.0 release and preserves the same CMake package and target names.
+
 ## Testing and verification
 
 Run the complete local matrix from PowerShell:
@@ -481,6 +483,10 @@ mxs-reganvil/
 |   |-- driver/                    RP2040 fixture, tests, and datasheet notes
 |   `-- consumer/                  Standalone source/package consumer
 |-- cmake/                         Package configuration and consumer checks
+|-- docs/                          Practical guides and maintainer deployment setup
+|-- site/                          Documentation builder and static assets
+|-- context7.json                 Coding-assistant documentation index settings
+|-- packaging/                    vcpkg overlay and package consumer
 |-- scripts/verify.ps1             Repeatable local verification
 |-- .github/workflows/ci.yml       Native compiler and sanitizer matrix
 |-- CMakeLists.txt                 Build, test, and install entry point
@@ -510,6 +516,10 @@ Linear lookup accepts sparse, unsorted tables without an allocated index or desc
 This release does not include SVD/XML parsing, a GUI, bus protocols, a scheduler, interrupt callbacks, CPU emulation, electrical timing, or whole-board simulation. A test supplies hardware changes between operations. The RP2040 fixture does not model pad signals, processor interrupt routing, atomic register aliases, or concurrent events. Descriptors must be checked against the relevant datasheet.
 
 Function mocks are useful when a test cares about expected calls and scripted results. RegAnvil adds persistent state and reusable bit semantics when those rules are the subject of the test. For wider emulation environments, see [Renode's peripheral register framework](https://renode.readthedocs.io/en/latest/advanced/writing-peripherals.html) and [Zephyr's device emulators](https://docs.zephyrproject.org/latest/hardware/emulator/index.html). RegAnvil's integration point is an ordinary native C test executable.
+
+## Documentation maintenance
+
+The documentation website is generated from this README, the practical guides, and the verification/fixture documents. The C library builds without Node.js or documentation dependencies. See [maintainer setup](docs/DEPLOYMENT.md) for local builds and the GitHub/Context7 configuration.
 
 ## License
 

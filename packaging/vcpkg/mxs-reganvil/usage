@@ -1,0 +1,6 @@
+mxs-reganvil provides the static CMake target mxs::reganvil:
+
+    find_package(mxs_reganvil CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE mxs::reganvil)
+
+Include <mxs_reganvil.h> from C99 or C++ code.

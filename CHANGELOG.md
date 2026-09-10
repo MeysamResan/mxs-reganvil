@@ -1,5 +1,12 @@
 # RegAnvil changelog
 
+## Unreleased
+
+- Add a generated documentation website, practical MMIO/W1C/read-clear guides, crawlable metadata, sitemap, and Markdown/llms documentation exports.
+- Configure verified main-push GitHub Pages deployment, Context7 registration/refresh, and optional repository metadata synchronization; document the required one-time owner setup.
+- Add current Context7 indexing configuration and a tested vcpkg overlay pinned to the immutable 0.1.0 source release.
+- Check generated links, metadata, tutorial execution, and automation error handling without making external requests during tests.
+
 ## 0.1.0 - 2026-09-10
 
 First release of the RegAnvil native C register model.

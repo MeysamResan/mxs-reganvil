@@ -10,7 +10,7 @@ permissions:
 
 concurrency:
   group: verification-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   build-test:
@@ -72,3 +72,106 @@ jobs:
           ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
           UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
         run: ctest --test-dir build --output-on-failure --no-tests=error
+
+  site-build:
+    name: Documentation and discovery checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.21.0'
+          package-manager-cache: false
+      - name: Install locked documentation dependencies
+        run: npm ci --prefix site --ignore-scripts --no-audit --no-fund
+      - name: Test discovery automation without external requests
+        run: npm --prefix site test
+      - name: Compile and execute maintained C documentation examples
+        run: node site/check-examples.mjs
+      - name: Build the documentation website
+        env:
+          GOOGLE_SITE_VERIFICATION: ${{ vars.GOOGLE_SITE_VERIFICATION }}
+        run: npm --prefix site run build
+      - name: Check pages, links, metadata, and discovery files
+        run: npm --prefix site run check
+      - name: Prepare the verified Pages artifact
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site/dist
+          retention-days: 1
+
+  pages-deploy:
+    name: Deploy documentation after verification
+    needs: [build-test, sanitizers, site-build]
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check the user-enabled Pages configuration
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+        with:
+          enablement: false
+      - name: Deploy the artifact from this verified commit
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+  context7:
+    name: Refresh Context7 after verification
+    needs: [build-test, sanitizers, site-build]
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.21.0'
+          package-manager-cache: false
+      - name: Register or refresh public library documentation
+        env:
+          CONTEXT7_API_KEY: ${{ secrets.CONTEXT7_API_KEY }}
+        run: node scripts/discovery/context7.mjs --apply
+
+  repository-metadata:
+    name: Synchronize repository description and topics
+    needs: [pages-deploy]
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.21.0'
+          package-manager-cache: false
+      - name: Apply configured metadata when the optional token is present
+        env:
+          REPOSITORY_METADATA_TOKEN: ${{ secrets.REPOSITORY_METADATA_TOKEN }}
+        shell: bash
+        run: |
+          if [[ -z "$REPOSITORY_METADATA_TOKEN" ]]; then
+            echo '::warning::Metadata sync skipped: configure About manually once, or add REPOSITORY_METADATA_TOKEN with Administration: write. See docs/DEPLOYMENT.md.'
+            echo 'Repository metadata was not updated: optional token is not configured.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            node scripts/discovery/metadata.mjs --apply
+          fi

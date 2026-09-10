@@ -1,0 +1,18 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "RegAnvil",
+  "description": "C99 register model for unit testing embedded drivers: MMIO, RW, RO, W1C, read-clear, and bounded access traces without heap allocation.",
+  "branch": "main",
+  "folders": [],
+  "excludeFolders": [".build", "build", "site", ".github", "scripts", "packaging/vcpkg/smoke"],
+  "excludeFiles": ["CHANGELOG.md", "DEPLOYMENT.md", "ANNOUNCEMENT.md", "AGENTS.md"],
+  "rules": [
+    "Use mxs_reganvil.h and the documented mxs_reganvil_* API. The CMake target is mxs::reganvil.",
+    "Use caller-owned descriptor, state, context, and optional trace storage with the documented lifetimes and non-overlap requirements.",
+    "Check status codes. Initialization and failed operations preserve outputs as documented.",
+    "A driver needs replaceable register accessors; RegAnvil does not intercept arbitrary volatile pointers or emulate a CPU.",
+    "Use peek for assertions without read-clear side effects. W1C acknowledgements must preserve unrelated pending flags.",
+    "Operations on one instance are single-threaded and non-reentrant. Validate descriptors against the hardware datasheet."
+  ],
+  "previousVersions": [{ "tag": "v0.1.0" }]
+}

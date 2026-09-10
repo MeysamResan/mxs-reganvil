@@ -1,0 +1,7 @@
+{
+  "name": "reganvil-vcpkg-smoke",
+  "version-string": "0",
+  "dependencies": [
+    "mxs-reganvil"
+  ]
+}

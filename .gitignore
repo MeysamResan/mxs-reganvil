@@ -31,3 +31,8 @@
 .DS_Store
 Thumbs.db
 /.vs/
+
+# Documentation-only dependencies and generated site.
+/site/node_modules/
+/site/dist/
+/site/.sites-runtime/

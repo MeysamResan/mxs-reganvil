@@ -121,6 +121,21 @@ Retained local evidence, when working in the original verification workspace:
 
 These ignored paths are a record of local evidence locations; they are not links to files distributed in a checkout or release archive.
 
+## Documentation and discovery verification: 2026-09-11
+
+The discovery additions leave the C implementation, public header, and CMake build unchanged. The following checks were executed locally on Windows with the same Node.js 24.21.0 version configured for the new documentation job:
+
+| Check | Observed result |
+| --- | --- |
+| Locked documentation installation | Fresh `npm ci` succeeded |
+| Automation tests with injected mock requests | 14/14 passed, covering registration/refresh, rate limits, invalid responses, credentials, trusted execution, and metadata failures |
+| Maintained C examples | The README program and three practical guide programs compiled with strict C99 warnings as errors and executed successfully |
+| Static website | All seven pages built; internal links/anchors, local assets, canonical URLs, structured metadata, Markdown pages, sitemap, and output inventory passed |
+| Workflow validation | Actionlint 1.7.12 passed workflow syntax, expressions, types, and job-dependency checks; external ShellCheck and Pyflakes checks were disabled |
+| vcpkg overlay | Debug/Release installation and installed/relocated consumers passed on Windows Clang using `x64-mingw-static`; [full packaging evidence](packaging/README.md#executed-verification) |
+
+The examples used Clang 23.1.1 with `-std=c99 -pedantic-errors -Wall -Wextra -Wconversion -Wshadow -Werror -O2 -DNDEBUG`. The new API helpers were tested with mocks and dry runs, without submitting a library, refreshing an index, changing repository metadata, or deploying a site. This record is local evidence; the new hosted deployment jobs await the owner's push and account setup. The hosted results below concern the earlier library release, not the newly added jobs.
+
 ## Hosted and hardware verification
 
 The [GitHub Actions workflow](.github/workflows/ci.yml) passed all **9 jobs** on 2026-09-10 for implementation commit [`9ba1626`](https://github.com/MeysamResan/mxs-reganvil/commit/9ba162656d5e6b82c2b6657d3d34812e63c8855a). [Recorded run and logs](https://github.com/MeysamResan/mxs-reganvil/actions/runs/34526680630).
