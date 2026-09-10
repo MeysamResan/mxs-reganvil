@@ -465,6 +465,8 @@ The recorded local baseline passed all six tests in Debug, Release, and ASan/UBS
 
 [GitHub Actions](.github/workflows/ci.yml) defines Linux GCC/Clang, macOS Apple Clang, and Windows MSVC Debug/Release jobs plus Linux Clang ASan/UBSan. A configured job is not proof of a successful run; consult the workflow results for the commit you use. No physical-hardware validation is claimed.
 
+For 0.1.0, all nine hosted CI jobs passed across Linux GCC/Clang, macOS Clang, Windows MSVC, and Linux ASan/UBSan. Local checks also executed both Windows x64 and i686 binaries, measured 100% core line and branch coverage, and caught all 12 deliberately faulty variants. See the [dated verification report](VERIFYING.md#hosted-and-hardware-verification) for exact scope and linked evidence.
+
 ## Project layout
 
 ```text

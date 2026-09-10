@@ -123,6 +123,16 @@ These ignored paths are a record of local evidence locations; they are not links
 
 ## Hosted and hardware verification
 
-The [GitHub Actions workflow](.github/workflows/ci.yml) defines Linux GCC/Clang, macOS Apple Clang, and Windows MSVC jobs in Debug and Release, plus Linux Clang ASan/UBSan. Consult the workflow results for the exact commit being evaluated. The local results above do not claim a hosted run, native Linux/macOS/MSVC execution, or LeakSanitizer coverage.
+The [GitHub Actions workflow](.github/workflows/ci.yml) passed all **9 jobs** on 2026-09-10 for implementation commit [`9ba1626`](https://github.com/MeysamResan/mxs-reganvil/commit/9ba162656d5e6b82c2b6657d3d34812e63c8855a). [Recorded run and logs](https://github.com/MeysamResan/mxs-reganvil/actions/runs/34526680630).
 
-ARM targets and physical hardware are outside the recorded local execution evidence. The RP2040 fixture checks a datasheet-defined register subset; it does not simulate pad signals, processor interrupt routing, simultaneous hardware events, or an entire chip. The model also does not intercept arbitrary volatile accesses or simulate a bus/CPU or electrical timing. Calls on a single model remain single-threaded and non-reentrant.
+| Native hosted configuration | Result |
+| --- | --- |
+| Linux GCC, Debug and Release | Both passed |
+| Linux Clang, Debug and Release | Both passed |
+| macOS Clang, Debug and Release | Both passed |
+| Windows MSVC, Debug and Release | Both passed |
+| Linux Clang, ASan + UBSan | Passed with `detect_leaks=1` and fatal sanitizer diagnostics |
+
+Each job runs the behavior, driver, demonstration, public-consumer, source-consumer, and relocated-package checks. The eight ordinary compiler jobs also build the library alone. These are actual hosted executions, in addition to the local Windows verification above. This report was added after that run; consult [Actions](https://github.com/MeysamResan/mxs-reganvil/actions/workflows/ci.yml) and the release notes for verification of the final tagged commit.
+
+Embedded ARM targets and physical register hardware are outside this verification evidence. The RP2040 fixture checks a datasheet-defined register subset; it does not simulate pad signals, processor interrupt routing, simultaneous hardware events, or an entire chip. The model also does not intercept arbitrary volatile accesses or simulate a bus/CPU or electrical timing. Calls on a single model remain single-threaded and non-reentrant.
