@@ -2,7 +2,7 @@ name: RegAnvil verification
 
 on:
   push:
-  pull_request:
+    branches: [dev, main]
   workflow_dispatch:
 
 permissions:
@@ -14,22 +14,34 @@ concurrency:
 
 jobs:
   build-test:
-    name: ${{ matrix.platform.os }} / ${{ matrix.platform.compiler }} / ${{ matrix.config }}
-    runs-on: ${{ matrix.platform.os }}
+    name: ${{ matrix.os }} / ${{ matrix.compiler }} / ${{ matrix.config }}
+    runs-on:
+      - self-hosted
+      - ${{ matrix.runner_os }}
+      - X64
+      - ${{ matrix.runner_label }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
         config: [Debug, Release]
-        platform:
-          - os: ubuntu-latest
+        platform: [linux-gcc, linux-clang, windows-msvc]
+        include:
+          - platform: linux-gcc
+            os: ubuntu-latest
             compiler: gcc
-          - os: ubuntu-latest
+            runner_os: Linux
+            runner_label: mrpc-linux
+          - platform: linux-clang
+            os: ubuntu-latest
             compiler: clang
-          - os: macos-latest
-            compiler: clang
-          - os: windows-latest
+            runner_os: Linux
+            runner_label: mrpc-linux
+          - platform: windows-msvc
+            os: windows-latest
             compiler: msvc
+            runner_os: Windows
+            runner_label: mrpc-windows
     steps:
       # v7.0.1 verified against the official release and commit on 2026-09-10:
       # https://github.com/actions/checkout/releases/tag/v7.0.1
@@ -37,27 +49,27 @@ jobs:
         with:
           persist-credentials: false
       - name: Configure GCC or Clang
-        if: matrix.platform.compiler != 'msvc'
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.config }} -DCMAKE_C_COMPILER=${{ matrix.platform.compiler }}
+        if: matrix.compiler != 'msvc'
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.config }} -DCMAKE_C_COMPILER=${{ matrix.compiler }}
       - name: Configure MSVC
-        if: matrix.platform.compiler == 'msvc'
+        if: matrix.compiler == 'msvc'
         run: cmake -S . -B build -A x64
       - name: Build
         run: cmake --build build --config ${{ matrix.config }} --parallel
       - name: Test behavior, demonstration, and source/relocated consumers
         run: ctest --test-dir build -C ${{ matrix.config }} --output-on-failure --no-tests=error
       - name: Configure library alone with GCC or Clang
-        if: matrix.platform.compiler != 'msvc'
-        run: cmake -S . -B build-library -DMXS_REGANVIL_BUILD_TESTS=OFF -DMXS_REGANVIL_BUILD_EXAMPLES=OFF -DCMAKE_BUILD_TYPE=${{ matrix.config }} -DCMAKE_C_COMPILER=${{ matrix.platform.compiler }}
+        if: matrix.compiler != 'msvc'
+        run: cmake -S . -B build-library -DMXS_REGANVIL_BUILD_TESTS=OFF -DMXS_REGANVIL_BUILD_EXAMPLES=OFF -DCMAKE_BUILD_TYPE=${{ matrix.config }} -DCMAKE_C_COMPILER=${{ matrix.compiler }}
       - name: Configure library alone with MSVC
-        if: matrix.platform.compiler == 'msvc'
+        if: matrix.compiler == 'msvc'
         run: cmake -S . -B build-library -A x64 -DMXS_REGANVIL_BUILD_TESTS=OFF -DMXS_REGANVIL_BUILD_EXAMPLES=OFF
       - name: Build library alone
         run: cmake --build build-library --config ${{ matrix.config }} --parallel
 
   sanitizers:
     name: Linux / Clang / ASan + UBSan
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, mrpc-linux]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -75,7 +87,7 @@ jobs:
 
   site-build:
     name: Documentation and discovery checks
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, mrpc-linux]
     timeout-minutes: 10
     permissions:
       contents: read
